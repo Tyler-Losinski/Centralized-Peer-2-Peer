@@ -28,7 +28,7 @@ namespace P2P_Server
             try
             {
                 // Set up server
-                TcpListener listenSocket = new TcpListener(IPAddress.Parse("127.0.0.1"), listenPort);
+                TcpListener listenSocket = new TcpListener(IPAddress.Any, listenPort);
                 listenSocket.Stop();
                 listenSocket.Start();
                 Console.WriteLine("\r\n::Server is active on the following address & port::");

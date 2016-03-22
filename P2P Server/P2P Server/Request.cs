@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
 /*
  * @author Adam Hart
@@ -49,105 +50,86 @@ namespace P2P_Server
          *   
          *   CLOSE     - Closes the connection.  No payload or reply from server.
          */
-        public void Parser(NetworkStream stream)
+        public void Parser()
         {
-            BinaryReader reader = new BinaryReader(stream);
-            StreamWriter writer = new StreamWriter(stream);
             int flag = 0;
 
 		    try
             {
 			    while(_clientSocket.Connected)
-                {		
-                    // Read in the command
-				    String code = String.Empty;
-                    char next = reader.ReadChar();
-                    while (!next.Equals('/'))
-                    {
-                        code += next;
-                        next = reader.ReadChar();
-                    }
-                    code = code.ToUpper();
+                {
+                    Byte[] buff = new Byte[_clientSocket.Client.ReceiveBufferSize];
+                    _clientSocket.Client.Receive(buff);
+
+                    string request = Encoding.UTF8.GetString(buff).ToUpper().TrimEnd('\0');
+                    string[] requests = request.Split('/');
 
                     // Detected "UDPATE" command
-				    if (code.Equals("UPDATE"))
+                    if (requests[0].Equals("UPDATE"))
                     {
                         // Read in the number of files the client has
-                        int files = reader.ReadInt32();
+                        int files = Convert.ToInt32(requests[1]);
 
-					    for (int i = 0; i < files; i++)
+                        for (int i = 2; i < files + 2; i++)
                         {
                             // Read a single file name
-						    string fileName = String.Empty;
-                            next = reader.ReadChar();
-                            while (!next.Equals('/'))
-                            {
-                                fileName += next;
-                                next = reader.ReadChar();
-                            }
-						    _index.AddFile(_clientSocket, fileName, _id);
-					    }
+                            string fileName = String.Empty;
+                            fileName = requests[i].ToString();
+                            _index.AddFile(_clientSocket, fileName, _id);
 
-				    }
-
-				    // Detected "SEARCH" command
-				    else if (code.Equals("SEARCH"))
-                    {
-                        // Read in the name of the requested file
-                        string fileName = String.Empty;
-                        next = reader.ReadChar();
-                        while (!next.Equals('/'))
-                        {
-                            fileName += next;
-                            next = reader.ReadChar();
+                            Console.WriteLine(fileName);
                         }
 
-                        // Get the list of peers that have the requested file
-					    List<int> currentList = _index.SearchFiles(fileName);
-					    int size = currentList.Count;
 
-                        // If the client already has the file, discount them
-					    if (currentList.Remove(_id)) --size;
+                    }
 
-                        // Return the number of peers
-					    writer.Write(size);
-
-                        // If there are more than zero peers, return each one
-                        if (size == 0) continue;
-                        foreach (int peer in currentList)
-                            SendPeers(peer, writer);
-				    }
-
-				    // Detected "REPLICATE" command
-                    else if (code.Equals("REPLICATE"))
+                    // Detected "SEARCH" command
+                    else if (requests[0].Equals("SEARCH"))
                     {
-                        int num = reader.ReadInt32();
-                        reader.ReadByte();
+                        // Read in the name of the requested file
+                        string fileName = requests[1].ToString();
 
-					    List<int> currentList = _index.ReplicateFiles(num, _id);
+                        // Get the list of peers that have the requested file
+                        List<int> currentList = _index.SearchFiles(fileName);
+                        int size = currentList.Count;
 
-					    if (currentList != null)
+                        string files = "";
+                        foreach (int peer in currentList)
                         {
-						    int size = currentList.Count;
-						    writer.Write(size);
-                            writer.Write('/');
-						    foreach (int peer in currentList)
-                                SendPeers(peer, writer);
-					    }
-					    else{
-						    writer.Write(0+"/");
-					    }
+                            Peer resPeer = _index.SearchPeers(peer);
+                            files += resPeer.FullHost() + "/";
+                            
+                        }
+                        Byte[] bytes = Encoding.UTF8.GetBytes(files);
+                        _clientSocket.Client.Send(bytes);
 
-				    }
+                    }
 
-				    // Detected "CLOSE" command
-				    else if(code.Equals("CLOSE")){
-					    flag = 1;
-					    _index.RemovePeer(_clientSocket, _id);
-					    _clientSocket.Close();
+                    // Detected "REPLICATE" command
+                    else if (requests[0].Equals("GET"))
+                    {
+                        List<string> stuff = new List<string>(_index.FileList.Keys);
+                        string list = "";
+                        foreach (string s in stuff) 
+                        {
+                            list += s + "/";
+                        }
+
+                        Byte[] bytes = Encoding.UTF8.GetBytes(list);
+                        _clientSocket.Client.Send(bytes);
+
+                    }
+
+                    // Detected "CLOSE" command
+                    else if (requests[0].Equals("CLOSE"))
+                    {
+                        flag = 1;
+                        _index.RemovePeer(_clientSocket, _id);
+                        _clientSocket.Close();
                         Console.WriteLine("Peer [ {0}:{1} ] disconnected", ((IPEndPoint)_clientSocket.Client.RemoteEndPoint).Address,
                             ((IPEndPoint)_clientSocket.Client.RemoteEndPoint).Port);
-				    }
+
+                    }
 			    }
 		    }
 		    catch (IOException)
@@ -158,13 +140,6 @@ namespace P2P_Server
                         ((IPEndPoint)_clientSocket.Client.RemoteEndPoint).Port);
 			    }
 		    }
-	    }
-
-        // Used to write a Peer to the stream
-        private void SendPeers(int pId, StreamWriter writer)
-        {
-		    Peer resPeer = _index.SearchPeers(pId);
-            writer.Write(resPeer.FullHost() + "/");
 	    }
     }
 }

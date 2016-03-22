@@ -2,6 +2,7 @@
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 
 /*
@@ -41,18 +42,19 @@ namespace P2P_Server
         {
             try
             {
-                _stream = _clientSocket.GetStream();
-                _writer = new StreamWriter(_stream);
+                //_stream = _clientSocket.GetStream();
+                //_writer = new StreamWriter(_stream);
 
-                // Add the client to the index as a Peer
+                //// Add the client to the index as a Peer
                 int id = _index.AddPeer(_clientSocket);
 
-                // Reply to client with "1" if registration was successful, "0" otherwise
-                _writer.Write(id > 0 ? "1/" : "0/");
+                Byte[] bytes = Encoding.UTF8.GetBytes(id > 0 ? "1/" : "0/");
+
+                _clientSocket.Client.Send(bytes);
 
                 // Handle further client requests in a Request object
                 _req = new Request(_clientSocket, _index, id);
-			    _req.Parser(_stream);
+			    _req.Parser();
 		    }
 		    catch (IOException)
             {

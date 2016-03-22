@@ -18,7 +18,7 @@ namespace P2P_Server
         private static int _counter;
 
         private Dictionary<int, Peer> PeerList { get; set; }
-        private Dictionary<string, List<int>> FileList { get; set; }
+        public Dictionary<string, List<int>> FileList { get; set; }
 
         // Constructor
         public CentralIndex()
