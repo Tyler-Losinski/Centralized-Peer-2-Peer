@@ -67,7 +67,11 @@ namespace P2P_Server
                 if (currentList != null && !currentList.Contains(id))
                 {
                     currentList.Add(id);
-                    FileList.Add(fileName, currentList);
+                    try
+                    {
+                        FileList.Add(fileName, currentList);
+                    }
+                    catch (Exception) { }
                 }
             }
 
