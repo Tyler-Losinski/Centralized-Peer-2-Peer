@@ -125,10 +125,11 @@ namespace P2P_Server
                     {
                         flag = 1;
                         _index.RemovePeer(_clientSocket, _id);
-                        _clientSocket.Close();
+                        
                         Console.WriteLine("Peer [ {0}:{1} ] disconnected", ((IPEndPoint)_clientSocket.Client.RemoteEndPoint).Address,
                             ((IPEndPoint)_clientSocket.Client.RemoteEndPoint).Port);
-
+                        _clientSocket.Close();
+                        break;
                     }
 			    }
 		    }
